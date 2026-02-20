@@ -18,7 +18,6 @@
   <style>
     html, body { height: 100%; margin: 0; }
 
-    /* Layout: sopra (mappa+report) + sotto (grafico) */
     .app{
       height:100%;
       display:grid;
@@ -30,7 +29,6 @@
       min-height: 0;
     }
 
-    /* Colonna sinistra */
     .left {
       display: grid;
       grid-template-rows: auto 1fr;
@@ -63,7 +61,6 @@
     button { cursor: pointer; }
     #map { width: 100%; height: 100%; }
 
-    /* Colonna destra (report) */
     .right {
       display: grid;
       grid-template-rows: auto 1fr;
@@ -183,7 +180,6 @@
       font-weight: 600;
     }
 
-    /* Colori categoria 0-6 */
     .c0 { background:#5B8FF9; }
     .c1 { background:#61DDAA; }
     .c2 { background:#65789B; }
@@ -192,7 +188,6 @@
     .c5 { background:#78D3F8; }
     .c6 { background:#F6903D; }
 
-    /* Pannello grafico in basso */
     .bottom{
       border-top: 1px solid #e8e8e8;
       background: #fff;
@@ -291,11 +286,11 @@
 
 <script>
   /************************************************************
-   * FILE JSON (mettili nella stessa cartella di index.html)
+   * FILE JSON (stessa cartella di index.html)
    ************************************************************/
   const META_URL = "./indicator_meta.json";
   const DATA_URL = "./commune_data.json";
-  const POP_URL  = "./population_series.json"; // se il file ha un nome diverso, aggiornalo qui.
+  const POP_URL  = "./population_series.json";
 
   /************************************************************
    * CONFINI (openpolis/geojson-italy)
@@ -320,10 +315,7 @@
 
   L.tileLayer(
     "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    }
+    { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' }
   ).addTo(map);
 
   const provSel = document.getElementById("provSel");
@@ -362,27 +354,17 @@
     if (b && b.isValid()) map.fitBounds(b, { padding: [16, 16] });
   }
 
-  // stile “istituzionale”
   function styleProv(code) {
     const isSel = code && code === selectedProvCode;
-    return {
-      color: "#1f2a44",
-      weight: isSel ? 3 : 1.5,
-      fillOpacity: isSel ? 0.20 : 0.12
-    };
+    return { color: "#1f2a44", weight: isSel ? 3 : 1.5, fillOpacity: isSel ? 0.20 : 0.12 };
   }
 
   function styleCom(isSel) {
-    return {
-      color: "#2c3e66",
-      weight: isSel ? 2.5 : 1,
-      fillOpacity: isSel ? 0.25 : 0.08
-    };
+    return { color: "#2c3e66", weight: isSel ? 2.5 : 1, fillOpacity: isSel ? 0.25 : 0.08 };
   }
 
   function drawProvinces() {
     if (provLayer) provLayer.remove();
-
     provLayer = L.geoJSON(
       { type: "FeatureCollection", features: provinces },
       {
@@ -391,10 +373,7 @@
           const name = safe(f.properties, G.provName) || "Provincia";
           const code = safe(f.properties, G.provCode);
           layer.bindTooltip(name, { sticky: true });
-
-          layer.on("click", () => {
-            if (code) selectProvince(code);
-          });
+          layer.on("click", () => { if (code) selectProvince(code); });
         }
       }
     ).addTo(map);
@@ -402,7 +381,6 @@
 
   function drawCommunes(filtered) {
     if (comLayer) comLayer.remove();
-
     comLayer = L.geoJSON(
       { type: "FeatureCollection", features: filtered },
       {
@@ -410,7 +388,6 @@
         onEachFeature: (f, layer) => {
           const name = safe(f.properties, G.comName) || "Comune";
           layer.bindTooltip(name, { sticky: true });
-
           layer.on("click", () => {
             const cname = safe(f.properties, G.comName);
             comSel.value = cname;
@@ -426,7 +403,6 @@
 
   function highlightComuneOnMap(name) {
     if (!name || !comLayer) return;
-
     comLayer.eachLayer(l => {
       const cname = safe(l.feature?.properties, G.comName);
       l.setStyle(styleCom(cname === name));
@@ -438,7 +414,6 @@
 
   function selectProvince(code) {
     selectedProvCode = code;
-
     drawProvinces();
     provSel.value = code;
 
@@ -464,7 +439,7 @@
   }
 
   /************************************************************
-   * REPORT + DATI
+   * REPORT
    ************************************************************/
   const reportTitle = document.getElementById("reportTitle");
   const reportSub   = document.getElementById("reportSub");
@@ -569,10 +544,7 @@
   }
 
   /************************************************************
-   * GRAFICO POPOLAZIONE 2002–2024 (istogramma)
-   * - Default: Lombardia
-   * - Selezione: solo comune selezionato
-   * - Mostra TUTTI gli anni
+   * GRAFICO POPOLAZIONE (1 sola serie alla volta)
    ************************************************************/
   const popSub = document.getElementById("popSub");
 
@@ -582,7 +554,7 @@
   const YEARS = Array.from({length: 23}, (_, i) => 2002 + i);
   let popChart = null;
 
-  // null => nessun comune selezionato (si mostra Lombardia)
+  // null => Lombardia
   let selectedComuneName = null;
 
   function getPopSeries(row) {
@@ -613,6 +585,7 @@
         labelName = selectedComuneName;
         data = getPopSeries(row);
       } else {
+        // fallback a Lombardia se non trovato
         selectedComuneName = null;
         labelName = "Lombardia";
         data = getPopSeries(lombRow);
@@ -660,7 +633,7 @@
             title: { display: true, text: "Anno" },
             grid: { display: false },
             ticks: {
-              autoSkip: false,   // ✅ tutti gli anni
+              autoSkip: false,     /* ✅ tutti gli anni */
               maxRotation: 0,
               minRotation: 0,
               font: { size: 10 }
@@ -669,9 +642,7 @@
           y: {
             title: { display: true, text: "Popolazione" },
             beginAtZero: false,
-            ticks: {
-              callback: (v) => Number(v).toLocaleString("it-IT")
-            }
+            ticks: { callback: (v) => Number(v).toLocaleString("it-IT") }
           }
         }
       }
@@ -731,19 +702,16 @@
 
   (async function init() {
     try {
-      // 1) carico meta + banca dati + serie popolazione
       meta = await loadJSON(META_URL);
       dataRows = await loadJSON(DATA_URL);
       popRows = await loadJSON(POP_URL);
 
-      // indicizza comuni per report
       rowByComune = new Map();
       for (const r of dataRows) {
         const n = normComuneName(r.Amm_2);
         if (n) rowByComune.set(n, r);
       }
 
-      // indicizza comuni per grafico popolazione
       popByComune = new Map();
       for (const r of popRows) {
         const n = normComuneName(r.Amm_2);
@@ -754,7 +722,6 @@
       selectedComuneName = null;
       renderPopulationChart();
 
-      // 2) carico confini e filtro Lombardia
       const topo = await loadJSON(TOPO_URL);
 
       const keys = Object.keys(topo.objects || {});
@@ -770,7 +737,6 @@
 
       if (!provinces.length) throw new Error("Filtro Lombardia: nessuna provincia trovata.");
 
-      // bounds Lombardia + blocco uscita
       const lombLayer = L.geoJSON({ type: "FeatureCollection", features: provinces });
       lombardiaBounds = lombLayer.getBounds();
 
@@ -779,7 +745,6 @@
       map.setMinZoom(map.getZoom());
       map.setMaxZoom(13);
 
-      // menu province
       const provItems = provinces
         .map(f => ({
           value: safe(f.properties, G.provCode),
@@ -791,7 +756,6 @@
       provSel.disabled = false;
       setOptions(provSel, provItems, "Seleziona una provincia");
 
-      // disegna province + report vuoto
       drawProvinces();
       setEmptyReport();
 
@@ -801,7 +765,6 @@
 
       provSel.disabled = true;
       clearSelect(provSel, "Errore caricamento");
-
       setEmptyReport();
     }
   })();
