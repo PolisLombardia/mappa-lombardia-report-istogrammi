@@ -14,8 +14,6 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- Data labels (etichette sopra le barre) -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -205,7 +203,7 @@
     .bottom-head{
       display:flex;
       justify-content:space-between;
-      align-items:center;
+      align-items:baseline;
       gap:12px;
       flex-wrap: wrap;
     }
@@ -219,23 +217,6 @@
       margin-top: 4px;
       line-height: 1.25;
     }
-    .chip{
-      border:1px solid #e8e8e8;
-      background:#fafafa;
-      border-radius: 999px;
-      padding: 8px 10px;
-      font-size: 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .dot{
-      width:10px;height:10px;border-radius:999px;
-      background:#555;
-      display:inline-block;
-    }
-    .dot.lomb { background:#9aa0a6; }
-    .dot.com  { background:#1f2a44; }
 
     .chart-wrap{
       height: 255px;
@@ -298,15 +279,7 @@
     <div class="bottom-head">
       <div>
         <div class="bottom-title">Popolazione (2002–2024) — istogramma</div>
-        <div id="popSub" class="bottom-sub">
-          Nessun comune selezionato: visualizzo Lombardia.
-        </div>
-      </div>
-
-      <div class="chip" title="Legenda">
-        <span class="dot com"></span><span>Comune</span>
-        <span style="opacity:.35;">|</span>
-        <span class="dot lomb"></span><span>Lombardia</span>
+        <div id="popSub" class="bottom-sub">Nessun comune selezionato: visualizzo Lombardia.</div>
       </div>
     </div>
 
@@ -322,7 +295,7 @@
    ************************************************************/
   const META_URL = "./indicator_meta.json";
   const DATA_URL = "./commune_data.json";
-  const POP_URL  = "./population_series.json"; // se il file su GitHub ha un nome diverso, aggiornalo qui.
+  const POP_URL  = "./population_series.json"; // se il file ha un nome diverso, aggiornalo qui.
 
   /************************************************************
    * CONFINI (openpolis/geojson-italy)
@@ -443,7 +416,8 @@
             comSel.value = cname;
             highlightComuneOnMap(cname);
             renderReportForComune(cname);
-            renderPopulationChartFor(cname);
+            selectedComuneName = cname;
+            renderPopulationChart();
           });
         }
       }
@@ -595,15 +569,21 @@
   }
 
   /************************************************************
-   * GRAFICO POPOLAZIONE 2002–2024 (istogramma + confronto Comune vs Lombardia)
+   * GRAFICO POPOLAZIONE 2002–2024 (istogramma)
+   * - Default: Lombardia
+   * - Selezione: solo comune selezionato
+   * - Mostra TUTTI gli anni
    ************************************************************/
   const popSub = document.getElementById("popSub");
 
   let popRows = null;
   let popByComune = new Map();
 
-  const YEARS = Array.from({length: 23}, (_,i) => 2002 + i);
+  const YEARS = Array.from({length: 23}, (_, i) => 2002 + i);
   let popChart = null;
+
+  // null => nessun comune selezionato (si mostra Lombardia)
+  let selectedComuneName = null;
 
   function getPopSeries(row) {
     return YEARS.map(y => {
@@ -619,95 +599,59 @@
     return n.toLocaleString("it-IT", { maximumFractionDigits: 0 });
   }
 
-  function renderPopulationChartFor(name) {
+  function renderPopulationChart() {
     if (!popRows) return;
 
-    const lombKey = normComuneName("LOMBARDIA");
-    const lombRow = popByComune.get(lombKey);
+    const lombRow = popByComune.get(normComuneName("LOMBARDIA"));
 
-    const key = normComuneName(name);
-    const comuneRow = popByComune.get(key);
+    let labelName = "Lombardia";
+    let data = getPopSeries(lombRow);
 
-    const showComune = !!(comuneRow && key && key !== lombKey);
-
-    // Sottotitolo
-    if (showComune) {
-      popSub.textContent = `Comune selezionato: ${name} (confronto con Lombardia)`;
-    } else {
-      popSub.textContent = `Nessun comune selezionato: visualizzo Lombardia.`;
+    if (selectedComuneName) {
+      const row = popByComune.get(normComuneName(selectedComuneName));
+      if (row) {
+        labelName = selectedComuneName;
+        data = getPopSeries(row);
+      } else {
+        selectedComuneName = null;
+        labelName = "Lombardia";
+        data = getPopSeries(lombRow);
+      }
     }
 
-    const lombData = getPopSeries(lombRow);
-    const comuneData = showComune ? getPopSeries(comuneRow) : null;
-
-    // Se due dataset, usa barre affiancate
-    const datasets = [];
-
-    if (showComune) {
-      datasets.push({
-        label: name,
-        data: comuneData,
-        backgroundColor: "rgba(31, 42, 68, 0.75)",
-        borderColor: "rgba(31, 42, 68, 1)",
-        borderWidth: 1,
-        categoryPercentage: 0.75,
-        barPercentage: 0.9
-      });
-    }
-
-    datasets.push({
-      label: "Lombardia",
-      data: lombData,
-      backgroundColor: "rgba(154, 160, 166, 0.55)",
-      borderColor: "rgba(154, 160, 166, 1)",
-      borderWidth: 1,
-      categoryPercentage: 0.75,
-      barPercentage: 0.9
-    });
+    popSub.textContent = selectedComuneName
+      ? `Comune selezionato: ${selectedComuneName}`
+      : `Nessun comune selezionato: visualizzo Lombardia.`;
 
     const ctx = document.getElementById("popChart").getContext("2d");
 
     if (popChart) {
       popChart.data.labels = YEARS;
-      popChart.data.datasets = datasets;
+      popChart.data.datasets[0].label = labelName;
+      popChart.data.datasets[0].data = data;
       popChart.update();
       return;
     }
-
-    // Registra plugin datalabels
-    Chart.register(ChartDataLabels);
 
     popChart = new Chart(ctx, {
       type: "bar",
       data: {
         labels: YEARS,
-        datasets
+        datasets: [{
+          label: labelName,
+          data,
+          borderWidth: 1
+        }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: {
-          duration: 500
-        },
+        animation: { duration: 400 },
         plugins: {
           legend: { display: true },
           tooltip: {
             callbacks: {
               label: (ctx) => `${ctx.dataset.label}: ${fmtIntIt(ctx.raw)}`
-            }
-          },
-          // Etichette sopra le barre: per non affollare, mostriamo SOLO 2002 e 2024
-          datalabels: {
-            color: "#222",
-            anchor: "end",
-            align: "end",
-            offset: 2,
-            clip: true,
-            font: { weight: "700", size: 10 },
-            formatter: (value, context) => {
-              const year = YEARS[context.dataIndex];
-              if (year !== 2002 && year !== 2024) return "";
-              return fmtIntIt(value);
             }
           }
         },
@@ -716,12 +660,10 @@
             title: { display: true, text: "Anno" },
             grid: { display: false },
             ticks: {
-              // Mostra un tick ogni 2 anni per leggibilità
-              callback: (val, idx) => {
-                const y = YEARS[idx];
-                return (y % 2 === 0) ? y : "";
-              },
-              maxRotation: 0
+              autoSkip: false,   // ✅ tutti gli anni
+              maxRotation: 0,
+              minRotation: 0,
+              font: { size: 10 }
             }
           },
           y: {
@@ -754,7 +696,10 @@
     if (lombardiaBounds) map.fitBounds(lombardiaBounds, { padding: [20, 20] });
 
     setEmptyReport();
-    renderPopulationChartFor("LOMBARDIA");
+
+    // reset grafico a Lombardia
+    selectedComuneName = null;
+    renderPopulationChart();
   }
 
   provSel.addEventListener("change", e => {
@@ -768,7 +713,9 @@
     if (!cname) return;
     highlightComuneOnMap(cname);
     renderReportForComune(cname);
-    renderPopulationChartFor(cname);
+
+    selectedComuneName = cname;
+    renderPopulationChart();
   });
 
   resetBtn.addEventListener("click", resetAll);
@@ -803,8 +750,9 @@
         if (n) popByComune.set(n, r);
       }
 
-      // grafico iniziale: Lombardia (default)
-      renderPopulationChartFor("LOMBARDIA");
+      // grafico iniziale: Lombardia
+      selectedComuneName = null;
+      renderPopulationChart();
 
       // 2) carico confini e filtro Lombardia
       const topo = await loadJSON(TOPO_URL);
